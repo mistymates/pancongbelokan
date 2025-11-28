@@ -32,14 +32,3 @@ npm run build
 ```sh
 npm run preview
 ```
-
-## Typical File Structure
-```
-src/
-  components/
-  pages/ or routes/
-  lib/
-  styles/
-  App.tsx
-  main.tsx
-```

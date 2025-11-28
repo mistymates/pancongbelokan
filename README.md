@@ -25,7 +25,6 @@ This application is designed to help **Pancong Belokan** manage their inventory 
 - shadcn-ui
 - Tailwind CSS
 
-## Getting Started
 
 ### 1. Clone the repository
 ```sh

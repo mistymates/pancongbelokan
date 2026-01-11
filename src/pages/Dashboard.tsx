@@ -15,28 +15,111 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
 const Dashboard = () => {
-  const { items, transactions, stats } = useInventory();
+  const { items, transactions, stats, isLoading } = useInventory();
 
-  // Prepare chart data from transactions
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - i));
-    return date.toLocaleDateString('id-ID', { weekday: 'short' });
-  });
+  // Prepare weekly chart data from transactions (last 7 days)
+  const getLast7DaysData = () => {
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - i));
+      date.setHours(0, 0, 0, 0); // Reset to start of day
+      return {
+        date: new Date(date),
+        dayName: date.toLocaleDateString('id-ID', { weekday: 'short' }),
+        masuk: 0,
+        keluar: 0,
+      };
+    });
 
-  const chartData = last7Days.map(day => ({
-    name: day,
-    masuk: Math.floor(Math.random() * 50) + 10,
-    keluar: Math.floor(Math.random() * 40) + 5,
-  }));
+    // Group transactions by day
+    transactions.forEach(transaction => {
+      const transactionDate = new Date(transaction.date);
+      transactionDate.setHours(0, 0, 0, 0);
+      
+      const dayIndex = days.findIndex(day => {
+        const dayDate = new Date(day.date);
+        dayDate.setHours(0, 0, 0, 0);
+        return dayDate.getTime() === transactionDate.getTime();
+      });
 
-  const trendData = Array.from({ length: 6 }, (_, i) => ({
-    name: `W${i + 1}`,
-    value: Math.floor(Math.random() * 60) + 80,
-  }));
+      if (dayIndex !== -1) {
+        if (transaction.type === 'in') {
+          days[dayIndex].masuk += transaction.quantity;
+        } else {
+          days[dayIndex].keluar += transaction.quantity;
+        }
+      }
+    });
+
+    return days.map(day => ({
+      name: day.dayName,
+      masuk: day.masuk,
+      keluar: day.keluar,
+    }));
+  };
+
+  const chartData = getLast7DaysData();
+
+  // Prepare trend data (last 6 weeks)
+  const getTrendData = () => {
+    const now = new Date();
+    const weeks = Array.from({ length: 6 }, (_, i) => {
+      // Calculate week start (Monday) for each of the last 6 weeks
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - (5 - i) * 7);
+      weekStart.setHours(0, 0, 0, 0);
+      
+      // Get Monday of that week
+      const day = weekStart.getDay();
+      const diff = weekStart.getDate() - day + (day === 0 ? -6 : 1);
+      weekStart.setDate(diff);
+
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+
+      return {
+        weekStart: new Date(weekStart),
+        weekEnd: new Date(weekEnd),
+        weekNumber: 6 - i,
+        value: 0,
+      };
+    });
+
+    // Calculate total stock out (usage) for each week
+    transactions.forEach(transaction => {
+      if (transaction.type === 'out') {
+        const transactionDate = new Date(transaction.date);
+        
+        weeks.forEach(week => {
+          if (transactionDate >= week.weekStart && transactionDate <= week.weekEnd) {
+            week.value += transaction.quantity;
+          }
+        });
+      }
+    });
+
+    return weeks.map(week => ({
+      name: `W${week.weekNumber}`,
+      value: Math.round(week.value * 100) / 100, // Round to 2 decimal places
+    }));
+  };
+
+  const trendData = getTrendData();
 
   const lowStockItems = items.filter(item => getStockStatus(item.currentStock, item.minStock) !== 'normal');
   const recentTransactions = transactions.slice(0, 5);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Memuat data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -112,23 +195,29 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <XAxis 
-                    dataKey="name" 
-                    axisLine={false} 
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                  />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                  />
-                  <Bar dataKey="masuk" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="keluar" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {chartData.some(day => day.masuk > 0 || day.keluar > 0) ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={false} 
+                      tickLine={false}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    />
+                    <Bar dataKey="masuk" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="keluar" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                  Belum ada aktivitas stok dalam 7 hari terakhir
+                </div>
+              )}
             </div>
             <div className="flex items-center justify-center gap-6 mt-2">
               <div className="flex items-center gap-2">
@@ -149,35 +238,41 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trendData}>
-                  <defs>
-                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis 
-                    dataKey="name" 
-                    axisLine={false} 
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                  />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2}
-                    fillOpacity={1} 
-                    fill="url(#colorValue)" 
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              {trendData.some(week => week.value > 0) ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={trendData}>
+                    <defs>
+                      <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={false} 
+                      tickLine={false}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="value" 
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth={2}
+                      fillOpacity={1} 
+                      fill="url(#colorValue)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                  Belum ada data pemakaian dalam 6 minggu terakhir
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

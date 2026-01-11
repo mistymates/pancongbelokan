@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Plus, Search, Edit, Trash2, Package } from 'lucide-react';
 import { useInventory } from '@/contexts/InventoryContext';
 import { getStockStatus } from '@/types/inventory';
@@ -17,6 +17,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -41,6 +42,119 @@ import {
 } from '@/components/ui/select';
 import { categories, units } from '@/data/mockData';
 import { useToast } from '@/hooks/use-toast';
+
+// Move ItemForm outside component to prevent re-creation on re-renders
+interface ItemFormProps {
+  formData: {
+    name: string;
+    category: string;
+    unit: string;
+    currentStock: number;
+    minStock: number;
+    price: number;
+  };
+  onSubmit: () => void;
+  submitLabel: string;
+  onFormDataChange: (updates: Partial<ItemFormProps['formData']>) => void;
+}
+
+const ItemForm = ({ formData, onSubmit, submitLabel, onFormDataChange }: ItemFormProps) => {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onSubmit();
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="name">Nama Item</Label>
+        <Input
+          id="name"
+          value={formData.name}
+          onChange={e => onFormDataChange({ name: e.target.value })}
+          placeholder="Masukkan nama item"
+          autoComplete="off"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Kategori</Label>
+          <Select
+            value={formData.category}
+            onValueChange={value => onFormDataChange({ category: value })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Pilih kategori" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map(cat => (
+                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Satuan</Label>
+          <Select
+            value={formData.unit}
+            onValueChange={value => onFormDataChange({ unit: value })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Pilih satuan" />
+            </SelectTrigger>
+            <SelectContent>
+              {units.map(unit => (
+                <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="currentStock">Stok Saat Ini</Label>
+          <Input
+            id="currentStock"
+            type="number"
+            value={formData.currentStock}
+            onChange={e => onFormDataChange({ currentStock: Number(e.target.value) })}
+            autoComplete="off"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="minStock">Stok Minimum</Label>
+          <Input
+            id="minStock"
+            type="number"
+            value={formData.minStock}
+            onChange={e => onFormDataChange({ minStock: Number(e.target.value) })}
+            autoComplete="off"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="price">Harga (Rp)</Label>
+          <Input
+            id="price"
+            type="number"
+            value={formData.price}
+            onChange={e => onFormDataChange({ price: Number(e.target.value) })}
+            autoComplete="off"
+          />
+        </div>
+      </div>
+
+      <Button type="submit" className="w-full">
+        {submitLabel}
+      </Button>
+    </form>
+  );
+};
 
 const Inventory = () => {
   const { items, addItem, updateItem, deleteItem } = useInventory();
@@ -76,7 +190,7 @@ const Inventory = () => {
     });
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!formData.name || !formData.category || !formData.unit) {
       toast({
         title: 'Error',
@@ -86,37 +200,64 @@ const Inventory = () => {
       return;
     }
 
-    addItem(formData);
-    toast({
-      title: 'Berhasil',
-      description: 'Item berhasil ditambahkan',
-    });
-    resetForm();
-    setIsAddOpen(false);
+    try {
+      await addItem(formData);
+      toast({
+        title: 'Berhasil',
+        description: 'Item berhasil ditambahkan',
+      });
+      setIsAddOpen(false);
+      // Reset form after dialog closes
+      setTimeout(() => {
+        resetForm();
+      }, 100);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Gagal menambahkan item. Silakan coba lagi.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleEdit = () => {
+  const handleEdit = async () => {
     if (!editingItem) return;
 
-    updateItem(editingItem.id, formData);
-    toast({
-      title: 'Berhasil',
-      description: 'Item berhasil diperbarui',
-    });
-    setIsEditOpen(false);
-    setEditingItem(null);
-    resetForm();
+    try {
+      await updateItem(editingItem.id, formData);
+      toast({
+        title: 'Berhasil',
+        description: 'Item berhasil diperbarui',
+      });
+      setIsEditOpen(false);
+      setEditingItem(null);
+      resetForm();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Gagal memperbarui item. Silakan coba lagi.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteId) return;
 
-    deleteItem(deleteId);
-    toast({
-      title: 'Berhasil',
-      description: 'Item berhasil dihapus',
-    });
-    setDeleteId(null);
+    try {
+      await deleteItem(deleteId);
+      toast({
+        title: 'Berhasil',
+        description: 'Item berhasil dihapus',
+      });
+      setDeleteId(null);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Gagal menghapus item. Silakan coba lagi.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const openEditDialog = (item: typeof items[0]) => {
@@ -132,91 +273,9 @@ const Inventory = () => {
     setIsEditOpen(true);
   };
 
-  const ItemForm = ({ onSubmit, submitLabel }: { onSubmit: () => void; submitLabel: string }) => (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="name">Nama Item</Label>
-        <Input
-          id="name"
-          value={formData.name}
-          onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-          placeholder="Masukkan nama item"
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Kategori</Label>
-          <Select
-            value={formData.category}
-            onValueChange={value => setFormData(prev => ({ ...prev, category: value }))}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Pilih kategori" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map(cat => (
-                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Satuan</Label>
-          <Select
-            value={formData.unit}
-            onValueChange={value => setFormData(prev => ({ ...prev, unit: value }))}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Pilih satuan" />
-            </SelectTrigger>
-            <SelectContent>
-              {units.map(unit => (
-                <SelectItem key={unit} value={unit}>{unit}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="currentStock">Stok Saat Ini</Label>
-          <Input
-            id="currentStock"
-            type="number"
-            value={formData.currentStock}
-            onChange={e => setFormData(prev => ({ ...prev, currentStock: Number(e.target.value) }))}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="minStock">Stok Minimum</Label>
-          <Input
-            id="minStock"
-            type="number"
-            value={formData.minStock}
-            onChange={e => setFormData(prev => ({ ...prev, minStock: Number(e.target.value) }))}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="price">Harga (Rp)</Label>
-          <Input
-            id="price"
-            type="number"
-            value={formData.price}
-            onChange={e => setFormData(prev => ({ ...prev, price: Number(e.target.value) }))}
-          />
-        </div>
-      </div>
-
-      <Button onClick={onSubmit} className="w-full">
-        {submitLabel}
-      </Button>
-    </div>
-  );
+  const handleFormDataChange = useCallback((updates: Partial<typeof formData>) => {
+    setFormData(prev => ({ ...prev, ...updates }));
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -227,18 +286,37 @@ const Inventory = () => {
           <p className="text-muted-foreground mt-1">Kelola data bahan baku</p>
         </div>
 
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <Dialog 
+          open={isAddOpen} 
+          onOpenChange={(open) => {
+            setIsAddOpen(open);
+            if (!open) {
+              resetForm();
+            }
+          }}
+        >
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>
+            <Button onClick={() => {
+              resetForm();
+              setIsAddOpen(true);
+            }}>
               <Plus className="w-4 h-4 mr-2" />
               Tambah Item
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent onInteractOutside={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>Tambah Item Baru</DialogTitle>
+              <DialogDescription>
+                Masukkan informasi item baru ke dalam inventaris
+              </DialogDescription>
             </DialogHeader>
-            <ItemForm onSubmit={handleAdd} submitLabel="Tambah Item" />
+            <ItemForm 
+              formData={formData}
+              onSubmit={handleAdd} 
+              submitLabel="Tambah Item"
+              onFormDataChange={handleFormDataChange}
+            />
           </DialogContent>
         </Dialog>
       </div>
@@ -339,12 +417,29 @@ const Inventory = () => {
       </Card>
 
       {/* Edit Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent>
+      <Dialog 
+        open={isEditOpen} 
+        onOpenChange={(open) => {
+          setIsEditOpen(open);
+          if (!open) {
+            setEditingItem(null);
+            resetForm();
+          }
+        }}
+      >
+        <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Edit Item</DialogTitle>
+            <DialogDescription>
+              Ubah informasi item yang ada di inventaris
+            </DialogDescription>
           </DialogHeader>
-          <ItemForm onSubmit={handleEdit} submitLabel="Simpan Perubahan" />
+          <ItemForm 
+            formData={formData}
+            onSubmit={handleEdit} 
+            submitLabel="Simpan Perubahan"
+            onFormDataChange={handleFormDataChange}
+          />
         </DialogContent>
       </Dialog>
 

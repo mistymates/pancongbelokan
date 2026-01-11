@@ -39,7 +39,7 @@ const StockOut = () => {
   const stockOutTransactions = transactions.filter(t => t.type === 'out');
   const selectedItem = items.find(i => i.id === formData.itemId);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.itemId || formData.quantity <= 0) {
@@ -63,22 +63,30 @@ const StockOut = () => {
       return;
     }
 
-    addTransaction({
-      itemId: formData.itemId,
-      itemName: item.name,
-      type: 'out',
-      quantity: formData.quantity,
-      notes: formData.notes,
-      date: new Date(),
-      createdBy: 'Admin',
-    });
+    try {
+      await addTransaction({
+        itemId: formData.itemId,
+        itemName: item.name,
+        type: 'out',
+        quantity: formData.quantity,
+        notes: formData.notes,
+        date: new Date(),
+        createdBy: 'Admin',
+      });
 
-    toast({
-      title: 'Berhasil',
-      description: `Stok ${item.name} berhasil dikurangi`,
-    });
+      toast({
+        title: 'Berhasil',
+        description: `Stok ${item.name} berhasil dikurangi`,
+      });
 
-    setFormData({ itemId: '', quantity: 0, notes: '' });
+      setFormData({ itemId: '', quantity: 0, notes: '' });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Gagal mengurangi stok. Silakan coba lagi.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (

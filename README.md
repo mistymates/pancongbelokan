@@ -21,19 +21,10 @@ npm install
 ```
 
 ### 3. Set up Supabase
-
-1. Create a Supabase project at https://supabase.com
-2. Copy `.env.example` to `.env`:
-   ```sh
-   cp .env.example .env
-   ```
-3. Add your Supabase credentials to `.env`:
-   ```env
-   VITE_SUPABASE_URL=your_supabase_project_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
-4. Run the SQL schema in your Supabase SQL Editor (see `supabase/schema.sql`)
-5. See `SUPABASE_SETUP.md` for detailed instructions
+1. buat file .env
+2. isi env:
+VITE_SUPABASE_URL=https://ijomtgpsdhebsyhcmoyh.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlqb210Z3BzZGhlYnN5aGNtb3loIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMzE5MDUsImV4cCI6MjA4MjkwNzkwNX0.ZYHvxfTsJheigxpNQv6KMmio9lY7BKYjX3cZAxsiMJ4
 
 ### 4. Start the development server
 ```sh

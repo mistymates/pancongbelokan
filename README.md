@@ -23,8 +23,10 @@ npm install
 ### 3. Set up Supabase
 1. buat file .env
 2. isi env:
+```sh
 VITE_SUPABASE_URL=https://ijomtgpsdhebsyhcmoyh.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlqb210Z3BzZGhlYnN5aGNtb3loIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczMzE5MDUsImV4cCI6MjA4MjkwNzkwNX0.ZYHvxfTsJheigxpNQv6KMmio9lY7BKYjX3cZAxsiMJ4
+```
 
 ### 4. Start the development server
 ```sh
